@@ -1,55 +1,43 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GO15VENDOREXPERIMENT := 1
 
 all: fmt build
 
-build: frps frpc build_test
-
-build_test: echo_server http_server
+build: frps frpc
 
 # compile assets into binary file
-assets:
-	go get -d github.com/rakyll/statik
-	@go install github.com/rakyll/statik
-	@rm -rf ./src/assets/statik
-	go generate ./src/...
+file:
+	rm -rf ./assets/frps/static/*
+	rm -rf ./assets/frpc/static/*
+	cp -rf ./web/frps/dist/* ./assets/frps/static
+	cp -rf ./web/frpc/dist/* ./assets/frpc/static
+	rm -rf ./assets/frps/statik
+	rm -rf ./assets/frpc/statik
+	go generate ./assets/...
 
 fmt:
-	go fmt ./src/...
-	@go fmt ./test/echo_server.go
-	@go fmt ./test/http_server.go
-	@go fmt ./test/func_test.go
-
+	go fmt ./...
+	
 frps:
-	go build -o bin/frps ./src/cmd/frps
-	@cp -rf ./src/assets/static ./bin
+	go build -o bin/frps ./cmd/frps
 
 frpc:
-	go build -o bin/frpc ./src/cmd/frpc
-
-echo_server:
-	go build -o test/bin/echo_server ./test/echo_server.go
-
-http_server:
-	go build -o test/bin/http_server ./test/http_server.go
+	go build -o bin/frpc ./cmd/frpc
 
 test: gotest
 
 gotest:
-	go test -v ./src/...
+	go test -v --cover ./assets/...
+	go test -v --cover ./client/...
+	go test -v --cover ./cmd/...
+	go test -v --cover ./models/...
+	go test -v --cover ./server/...
+	go test -v --cover ./utils/...
 
-alltest:
-	cd ./test && ./run_test.sh && cd -
-	go test -v ./src/...
-	go test -v ./test/func_test.go
-	cd ./test && ./clean_test.sh && cd -
+ci:
+	go test -count=1 -p=1 -v ./tests/...
 
+alltest: gotest ci
+	
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
-	rm -f ./test/bin/echo_server
-	rm -f ./test/bin/http_server
-	cd ./test && ./clean_test.sh && cd -
-
-save:
-	godep save ./src/...
